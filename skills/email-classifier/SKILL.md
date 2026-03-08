@@ -33,7 +33,7 @@ Return exactly this JSON schema — every field required:
 
 ```json
 {
-  "intent": "sales-inquiry | support-request | internal | spam",
+  "intent": "sales-inquiry | support-request | quotation-request | make-booking | generate-waybill | booking-inquiry | internal | spam",
   "confidence": 0.0 to 1.0,
   "sender": {
     "name": "Jane Doe",
@@ -53,6 +53,10 @@ Return exactly this JSON schema — every field required:
 **`intent`** — choose exactly one:
 - `sales-inquiry` — pricing questions, demo requests, partnership offers, "interested in your product", trial requests, procurement inquiries from new contacts
 - `support-request` — bug reports, "not working", error messages, how-to questions, feature confusion, billing issues from existing customers
+- `quotation-request` — requests for a shipping/freight/logistics quote, asking for rates, cost estimates, or price comparisons for moving goods
+- `make-booking` — ready to book a shipment, confirming a booking, providing shipment details (origin, destination, cargo, date) to proceed with an order
+- `generate-waybill` — requests to issue, resend, or generate a waybill, airway bill, bill of lading, or shipping label for an existing booking
+- `booking-inquiry` — questions about an existing booking: status, ETD/ETA, tracking, amendments, cancellations, or documentation for a booking reference
 - `internal` — senders from your own domain, internal notifications, automated system emails from known internal sources
 - `spam` — mass marketing, newsletters with unsubscribe links, cold outreach with no specific product mention, phishing indicators
 

@@ -1,0 +1,55 @@
+{
+  "workspace": { "name": "digital-employees", "dir": "/workspace" },
+  "hooks": {
+    "internal": { "enabled": true }
+  },
+  "agents": {
+    "list": [
+      {
+        "id": "alice",
+        "name": "Alice",
+        "default": true,
+        "workspace": "/workspace/alice",
+        "model": "anthropic/claude-opus-4-6",
+        "skills": ["sales-crm", "email-intake", "calendar"],
+        "identity": { "name": "Alice", "role": "Sales Development Representative" }
+      }
+    ]
+  },
+  "bindings": [
+    { "agentId": "alice", "match": { "channel": "telegram", "accountId": "alice-bot" } },
+    { "agentId": "alice", "match": { "channel": "slack", "guildId": "SALES-WORKSPACE-ID" } }
+  ],
+  "cron": {
+    "jobs": [
+      {
+        "id": "daily-sales-report",
+        "agentId": "alice",
+        "name": "Daily Sales Pipeline Report",
+        "enabled": true,
+        "schedule": { "kind": "cron", "expr": "0 9 * * 1-5", "tz": "Asia/Shanghai" },
+        "sessionTarget": "isolated",
+        "wakeMode": "now",
+        "payload": {
+          "kind": "agentTurn",
+          "message": "Generate today's sales pipeline summary from CRM. Post to #sales-daily."
+        },
+        "state": {}
+      },
+      {
+        "id": "email-monitor-alice",
+        "agentId": "alice",
+        "name": "Email Inbox Monitor",
+        "enabled": true,
+        "schedule": { "kind": "every", "everyMs": 300000 },
+        "sessionTarget": "isolated",
+        "wakeMode": "now",
+        "payload": {
+          "kind": "agentTurn",
+          "message": "Check Gmail inbox for new emails. Classify intent and respond or route appropriately."
+        },
+        "state": {}
+      }
+    ]
+  }
+}

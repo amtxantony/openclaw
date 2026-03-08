@@ -48,6 +48,10 @@ Fetch up to 20 unread messages (see below), then for each email:
 2. **Route by intent:**
    - `sales-inquiry` → spawn `crm-lead-writer` (see Step 2a)
    - `support-request` → spawn `ticket-creator` (see Step 2b)
+   - `quotation-request` → spawn `tasksmatic-handler` (see Step 2c)
+   - `make-booking` → spawn `tasksmatic-handler` (see Step 2c)
+   - `generate-waybill` → spawn `tasksmatic-handler` (see Step 2c)
+   - `booking-inquiry` → spawn `tasksmatic-handler` (see Step 2c)
    - `internal` → summarise inline, post to Slack if configured
    - `spam` → archive inline (remove `INBOX` label)
 
@@ -98,6 +102,32 @@ sessions_spawn
     <body>
 
     Also send an acknowledgement reply to <email> with the ticket number once created.
+```
+
+## Step 2c — Spawn tasksmatic-handler (quotation-request | make-booking | generate-waybill | booking-inquiry)
+
+Download any attachments from the email to `/workspace/email-intake/tmp/` before spawning (see Downloading and Uploading Attachments below). Pass the full email content and the list of downloaded attachment paths.
+
+```
+sessions_spawn
+  agentId: tasksmatic-handler
+  label: tasksmatic-<intent>-<sender-email>
+  task: |
+    Handle this logistics email using the Tasksmatic API.
+
+    Intent: <intent from classifier>
+    Priority: <priority>
+    Summary: <summary from classifier>
+
+    Sender: <name> <email>
+    Subject: <subject>
+    Date: <date header>
+    Message-ID: <message-id header>
+    Body:
+    <decoded body>
+
+    Attachments saved to workspace:
+    <list of /workspace/email-intake/tmp/FILENAME paths, one per line, or "none">
 ```
 
 ---

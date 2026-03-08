@@ -1,6 +1,6 @@
 ---
 name: tasksmatic-task
-description: Create, read, update, complete, and delete tasks in Tasksmatic via the REST API. Use when managing work items, to-dos, or project tasks inside Tasksmatic.
+description: Interact with Tasksmatic via the REST API — manage tasks, and handle logistics operations (quotation requests, bookings, waybill generation, booking inquiries). All logistics endpoints receive the raw email content, headers, and attachments.
 metadata:
   {
     "openclaw":
@@ -181,3 +181,121 @@ curl -s "$TASKSMATIC_API_URL/users" \
 - When creating tasks on behalf of a user message, set `dueDate` only if the user explicitly mentioned a deadline.
 - If `TASKSMATIC_API_URL` is not set, output a warning and do nothing — never guess the URL.
 - Return the task `id` (and `url` if present) to the caller after any create or update.
+
+---
+
+## Logistics Operations (Email-Driven)
+
+All four endpoints below receive the **full email content**: raw headers, decoded body text, and any attachments as multipart form fields. Download attachments to the agent workspace first (see the `email-intake` skill for download instructions), then include them in the request.
+
+### Common request shape
+
+Every logistics endpoint accepts the following base fields. Each endpoint may require additional fields — see the per-endpoint sections below.
+
+```bash
+# Build the base form fields — reuse across all four endpoints
+EMAIL_FROM="sender@example.com"
+EMAIL_SUBJECT="subject line"
+EMAIL_BODY="decoded body text"
+EMAIL_DATE="2026-03-08T10:00:00Z"   # from the Date header
+EMAIL_MESSAGE_ID="<msg-id@domain>"  # from the Message-ID header
+
+# Add attachment flags (repeat for each file)
+# -F "attachment=@/workspace/email-intake/tmp/invoice.pdf;type=application/pdf"
+```
+
+---
+
+### Quotation Request
+
+Triggered when `intent = quotation-request`. Send the email so the system can extract shipment details and calculate a rate.
+
+```bash
+curl -s -X POST "$TASKSMATIC_API_URL/TODO_quotation_endpoint" \
+  -H "Authorization: Bearer $TASKSMATIC_API_KEY" \
+  -F "from=$EMAIL_FROM" \
+  -F "subject=$EMAIL_SUBJECT" \
+  -F "body=$EMAIL_BODY" \
+  -F "date=$EMAIL_DATE" \
+  -F "messageId=$EMAIL_MESSAGE_ID" \
+  # TODO: add shipment-specific fields once API schema is confirmed
+  # -F "attachment=@/workspace/email-intake/tmp/FILENAME;type=MIMETYPE"
+  | jq '{id, quoteRef, status}'
+```
+
+Return the `quoteRef` and status to the email-intake orchestrator.
+
+---
+
+### Make Booking
+
+Triggered when `intent = make-booking`. Submits a new booking order from the email content.
+
+```bash
+curl -s -X POST "$TASKSMATIC_API_URL/TODO_booking_endpoint" \
+  -H "Authorization: Bearer $TASKSMATIC_API_KEY" \
+  -F "from=$EMAIL_FROM" \
+  -F "subject=$EMAIL_SUBJECT" \
+  -F "body=$EMAIL_BODY" \
+  -F "date=$EMAIL_DATE" \
+  -F "messageId=$EMAIL_MESSAGE_ID" \
+  # TODO: add booking-specific fields once API schema is confirmed
+  # -F "attachment=@/workspace/email-intake/tmp/FILENAME;type=MIMETYPE"
+  | jq '{id, bookingRef, status}'
+```
+
+Return the `bookingRef` and status to the email-intake orchestrator.
+
+---
+
+### Generate Waybill
+
+Triggered when `intent = generate-waybill`. Requests waybill/AWB/BOL generation for an existing booking reference found in the email.
+
+```bash
+curl -s -X POST "$TASKSMATIC_API_URL/TODO_waybill_endpoint" \
+  -H "Authorization: Bearer $TASKSMATIC_API_KEY" \
+  -F "from=$EMAIL_FROM" \
+  -F "subject=$EMAIL_SUBJECT" \
+  -F "body=$EMAIL_BODY" \
+  -F "date=$EMAIL_DATE" \
+  -F "messageId=$EMAIL_MESSAGE_ID" \
+  # TODO: add waybill-specific fields once API schema is confirmed
+  # -F "attachment=@/workspace/email-intake/tmp/FILENAME;type=MIMETYPE"
+  | jq '{id, waybillNumber, downloadUrl}'
+```
+
+Return the `waybillNumber` and `downloadUrl` to the email-intake orchestrator.
+
+---
+
+### Booking Inquiry
+
+Triggered when `intent = booking-inquiry`. Submits a query about an existing booking (status, ETA, amendments, cancellations, documents).
+
+```bash
+curl -s -X POST "$TASKSMATIC_API_URL/TODO_booking_inquiry_endpoint" \
+  -H "Authorization: Bearer $TASKSMATIC_API_KEY" \
+  -F "from=$EMAIL_FROM" \
+  -F "subject=$EMAIL_SUBJECT" \
+  -F "body=$EMAIL_BODY" \
+  -F "date=$EMAIL_DATE" \
+  -F "messageId=$EMAIL_MESSAGE_ID" \
+  # TODO: add inquiry-specific fields once API schema is confirmed
+  # -F "attachment=@/workspace/email-intake/tmp/FILENAME;type=MIMETYPE"
+  | jq '{id, inquiryRef, status}'
+```
+
+Return the `inquiryRef` and status to the email-intake orchestrator.
+
+---
+
+### After Each Logistics API Call
+
+1. Log the result to `/workspace/email-intake/processed.jsonl`:
+   ```bash
+   echo '{"timestamp":"'$(date -u +%FT%TZ)'","intent":"INTENT","from":"'$EMAIL_FROM'","ref":"RETURNED_REF","status":"STATUS"}' \
+     >> /workspace/email-intake/processed.jsonl
+   ```
+2. Clean up any downloaded attachments from `/workspace/email-intake/tmp/`.
+3. Return a one-line summary to the orchestrator: `intent → ref → status`.

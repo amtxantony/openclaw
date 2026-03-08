@@ -1,0 +1,40 @@
+{
+  "workspace": { "name": "digital-employees", "dir": "/workspace" },
+  "agents": {
+    "list": [
+      {
+        "id": "manager",
+        "name": "Manager",
+        "default": true,
+        "workspace": "/workspace/manager",
+        "model": "anthropic/claude-opus-4-6",
+        "skills": ["orchestration"],
+        "identity": { "name": "Manager", "role": "Orchestration Agent" }
+      }
+    ]
+  },
+  "bindings": [
+    { "agentId": "manager", "match": { "channel": "slack", "guildId": "MAIN-WORKSPACE-ID" } }
+  ],
+  "subagents": {
+    "allowAgents": ["alice", "bob"]
+  },
+  "cron": {
+    "jobs": [
+      {
+        "id": "intent-routing",
+        "agentId": "manager",
+        "name": "Incoming Request Router",
+        "enabled": true,
+        "schedule": { "kind": "every", "everyMs": 600000 },
+        "sessionTarget": "isolated",
+        "wakeMode": "now",
+        "payload": {
+          "kind": "agentTurn",
+          "message": "Check for incoming emails and new requests that need routing. Classify each as sales (delegate to Alice) or support (delegate to Bob). Spawn the appropriate specialist agent for each item."
+        },
+        "state": {}
+      }
+    ]
+  }
+}

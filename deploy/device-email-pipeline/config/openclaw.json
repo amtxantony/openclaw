@@ -1,0 +1,75 @@
+{
+  "workspace": { "name": "email-pipeline", "dir": "/workspace" },
+  "hooks": {
+    "internal": { "enabled": true }
+  },
+  "agents": {
+    "defaults": {
+      "subagents": { "maxSpawnDepth": 2 }
+    },
+    "list": [
+      {
+        "id": "email-intake",
+        "name": "Email Intake",
+        "default": true,
+        "workspace": "/workspace/email-intake",
+        "model": "anthropic/claude-sonnet-4-6",
+        "skills": ["email-intake", "outlook-email", "browser-email-intake", "imap-email"],
+        "subagents": {
+          "allowAgents": ["email-classifier", "crm-lead-writer", "ticket-creator", "tasksmatic-handler"]
+        },
+        "systemPrompt": "You are the email processing orchestrator. Your job is to fetch unread emails using the intake method designated by the deployment configuration. The active method is indicated by which env vars are set: GMAIL_OAUTH_TOKEN_PATH → use the email-intake (Gmail) skill; OUTLOOK_ACCESS_TOKEN_PATH → use the outlook-email skill; IMAP_HOST → use the imap-email skill; no API credentials → use the browser-email-intake skill. Use exactly the one method that matches your config — do not fall back or combine methods. For each email, spawn the email-classifier sub-agent to get a structured intent, then spawn the appropriate specialist sub-agent based on the intent: crm-lead-writer (sales-inquiry), ticket-creator (support-request), tasksmatic-handler (quotation-request, make-booking, generate-waybill, booking-inquiry). Handle internal and spam emails directly without spawning."
+      },
+      {
+        "id": "email-classifier",
+        "name": "Email Classifier",
+        "workspace": "/workspace/email-classifier",
+        "model": "anthropic/claude-haiku-4-5-20251001",
+        "skills": ["email-classifier"],
+        "systemPrompt": "You are a precision email classifier. When given an email (subject, sender, body), classify its intent and return ONLY a valid JSON object — no prose, no explanation. Never respond conversationally."
+      },
+      {
+        "id": "crm-lead-writer",
+        "name": "CRM Lead Writer",
+        "workspace": "/workspace/crm-lead-writer",
+        "model": "anthropic/claude-haiku-4-5-20251001",
+        "skills": ["sales-crm"],
+        "systemPrompt": "You are a CRM specialist. When given structured email data (sender, company, intent summary), create or update a HubSpot lead. Return a one-line summary: what you created and the contact URL."
+      },
+      {
+        "id": "ticket-creator",
+        "name": "Ticket Creator",
+        "workspace": "/workspace/ticket-creator",
+        "model": "anthropic/claude-haiku-4-5-20251001",
+        "skills": ["ticket-creation"],
+        "systemPrompt": "You are a support ticket specialist. When given structured email data (sender, subject, body, intent), create a Linear ticket with correct priority and labels. Return the ticket ID and URL."
+      },
+      {
+        "id": "tasksmatic-handler",
+        "name": "Tasksmatic Handler",
+        "workspace": "/workspace/tasksmatic-handler",
+        "model": "anthropic/claude-haiku-4-5-20251001",
+        "skills": ["tasksmatic-task"],
+        "systemPrompt": "You are a logistics operations specialist. You receive structured email data (intent, sender, subject, body, date, messageId, attachments) and call the appropriate Tasksmatic API endpoint based on the intent: quotation-request → POST quotation endpoint; make-booking → POST booking endpoint; generate-waybill → POST waybill endpoint; booking-inquiry → POST booking inquiry endpoint. Always pass the full email content and attachments to the API. Log the result and return a one-line summary: intent → ref → status."
+      }
+    ]
+  },
+  "cron": {
+    "jobs": [
+      {
+        "id": "email-pipeline",
+        "agentId": "email-intake",
+        "name": "Email Processing Pipeline",
+        "enabled": true,
+        "schedule": { "kind": "every", "everyMs": 300000 },
+        "sessionTarget": "isolated",
+        "wakeMode": "now",
+        "payload": {
+          "kind": "agentTurn",
+          "message": "Run the email processing pipeline: fetch unread emails using the intake method configured for this deployment, classify each one, and route to the appropriate specialist."
+        },
+        "state": {}
+      }
+    ]
+  }
+}

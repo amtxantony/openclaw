@@ -1,0 +1,41 @@
+{
+  "workspace": { "name": "digital-employees", "dir": "/workspace" },
+  "hooks": {
+    "internal": { "enabled": true }
+  },
+  "agents": {
+    "list": [
+      {
+        "id": "bob",
+        "name": "Bob",
+        "default": true,
+        "workspace": "/workspace/bob",
+        "model": "anthropic/claude-sonnet-4-6",
+        "skills": ["support-kb", "ticket-creation", "email-intake"],
+        "identity": { "name": "Bob", "role": "Customer Support Agent" }
+      }
+    ]
+  },
+  "bindings": [
+    { "agentId": "bob", "match": { "channel": "whatsapp", "accountId": "bob-wa" } },
+    { "agentId": "bob", "match": { "channel": "slack", "guildId": "SUPPORT-WORKSPACE-ID" } }
+  ],
+  "cron": {
+    "jobs": [
+      {
+        "id": "email-monitor-bob",
+        "agentId": "bob",
+        "name": "Email Inbox Monitor",
+        "enabled": true,
+        "schedule": { "kind": "every", "everyMs": 300000 },
+        "sessionTarget": "isolated",
+        "wakeMode": "now",
+        "payload": {
+          "kind": "agentTurn",
+          "message": "Check Gmail inbox for new support emails. Search the knowledge base for matching solutions, create tickets for unresolved issues, and reply to senders with next steps."
+        },
+        "state": {}
+      }
+    ]
+  }
+}

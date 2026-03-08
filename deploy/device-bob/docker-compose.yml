@@ -1,0 +1,14 @@
+services:
+  openclaw:
+    image: ${OPENCLAW_IMAGE:-openclaw:local}
+    restart: unless-stopped
+    env_file:
+      - ./config/.env
+    environment:
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+    ports:
+      - "18789:18789"
+    volumes:
+      - ./config:/home/node/.openclaw
+      - ./workspace:/workspace
+    command: node dist/index.js gateway --bind lan --port 18789
